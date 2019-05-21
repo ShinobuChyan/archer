@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.archer.server.core.dao.mapper.ArcherMessageMapper">
+
+    <resultMap id="BaseResultMap" type="com.archer.server.core.entity.ArcherMessageEntity">
+        <id column="id" property="id" jdbcType="VARCHAR"/>
+        <result column="ref_id" property="refId" jdbcType="VARCHAR"/>
+        <result column="extra_info" property="extraInfo" jdbcType="VARCHAR"/>
+        <result column="topic" property="topic" jdbcType="VARCHAR"/>
+        <result column="tag" property="tag" jdbcType="VARCHAR"/>
+        <result column="source" property="source" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="url" property="url" jdbcType="VARCHAR"/>
+        <result column="method" property="method" jdbcType="VARCHAR"/>
+        <result column="content_type" property="contentType" jdbcType="VARCHAR"/>
+        <result column="headers" property="headers" jdbcType="LONGVARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="interval_list" property="intervalList" jdbcType="VARCHAR"/>
+        <result column="interval_index" property="intervalIndex" jdbcType="INTEGER"/>
+        <result column="first_time" property="firstTime" jdbcType="TIMESTAMP"/>
+        <result column="last_time" property="lastTime" jdbcType="TIMESTAMP"/>
+        <result column="next_time" property="nextTime" jdbcType="TIMESTAMP"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="creator_id" property="creatorId" jdbcType="VARCHAR"/>
+        <result column="creator_name" property="creatorName" jdbcType="VARCHAR"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="updater_id" property="updaterId" jdbcType="VARCHAR"/>
+        <result column="updater_name" property="updaterName" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,
+        ref_id,
+        extra_info,
+        topic,
+        tag,
+        source,
+        status,
+        url,
+        method,
+        content_type,
+        headers,
+        content,
+        interval_list,
+        interval_index,
+        first_time,
+        last_time,
+        next_time,
+        create_time,
+        creator_id,
+        creator_name,
+        update_time,
+        updater_id,
+        updater_name
+    </sql>
+
+    <select id="countByPrimaryKey" resultType="java.lang.Integer">
+        select count(*)
+        from archer_message
+        where id = #{id}
+    </select>
+
+    <select id="countByUniqueIndex" resultType="java.lang.Integer">
+        select count(*)
+        from archer_message
+        where ref_id = #{refId}
+          and extra_info = #{extraInfo}
+          and source = #{source}
+    </select>
+
+    <update id="updateSendingMainColumnsById">
+        update archer_message
+        set status = #{status}, interval_index = #{intervalIndex}
+        <if test="lastTime != null">
+            , last_time = #{lastTime}
+        </if>
+        <if test="nextTime != null">
+            , next_time = #{nextTime}
+        </if>
+        where id = #{id}
+        and status = '1'
+    </update>
+
+    <select id="selectStatusByPrimaryKey" resultType="java.lang.String">
+        select status
+        from archer_message
+        where id = #{id}
+    </select>
+
+    <update id="updateStatusByPrimaryKey">
+        update archer_message
+        set status = #{status}
+        where id = #{id}
+    </update>
+
+    <update id="updateSendingMessageToIdleByIdListWhenAppShutdown">
+        update archer_message
+        set status = '-1', next_time = now()
+        where status = '1'
+        and id in
+        <foreach collection="idList" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <select id="selectPreparedIdleMessages" resultMap="BaseResultMap">
+        select * from archer_message where status = '-1' and next_time >= now()
+    </select>
+
+    <update id="updateFetchedIdleMessagesByIdList">
+        update archer_message set status = '1', next_time = null
+        where status = '-1'
+        and id in
+        <foreach collection="idList" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

@@ -1,0 +1,61 @@
+spring:
+  application:
+    name:
+  datasource:
+    druid:
+      initial-size: 1
+      min-idle: 1
+      max-active: 20
+      max-wait: 60000
+      pool-prepared-statements: false
+      max-open-prepared-statements: -1
+      validation-query: SELECT 'x'
+      validation-query-timeout: 60
+      test-on-borrow: false
+      test-on-return: false
+      test-while-idle: true
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      max-evictable-idle-time-millis: 3000000
+      filters: stat,wall,slf4j
+  servlet:
+    multipart:
+      max-file-size: 10MB
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: true
+
+
+# Mybatis
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.archer.server.core.entity.*
+mapper:
+  mappers: com.archer.server.core.dao.BaseMapper
+  not-empty: false
+  identity: MYSQL
+
+# PageHelper
+pagehelper:
+  helper-dialect: mysql
+  reasonable: true
+
+# Dubbo
+dubbo:
+  application:
+    id: archer-server
+    name: archer-server
+  protocol:
+    name: dubbo
+    port: 20880
+  monitor:
+    protocol: registry
+  scan:
+    basePackages: com.archer.server.dubbo
+  consumer:
+    timeout: 10000
+
+# Customized properties
+gray-log:
+  host: localhost
+  port: 5151

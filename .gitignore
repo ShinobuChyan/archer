@@ -1,0 +1,9 @@
+# Log file
+logs
+*.log
+
+# IntelliJ project files
+.idea
+*.iml
+.mvn
+target
