@@ -130,7 +130,7 @@ public class MainTask {
     /**
      * 每十秒由任一应用实例检查所有发送中消息的所属实例的状态，如果存在stamp则说明刚被检查过
      *
-     * 如果消息所属实例已失效，置为闲置状态
+     * 如果消息所属实例已失效，则置为闲置状态
      */
     @Scheduled(fixedRate = 1000 * 10)
     public void checkMessagesOfInvalidInstance() {
