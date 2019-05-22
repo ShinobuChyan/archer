@@ -23,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -104,7 +106,7 @@ public class MainTask {
     }
 
     private void fetchAndProduce() {
-        // fetch
+        // fetch & update
         var entities = archerMessageMapper.selectPreparedIdleMessages();
         var updateCount = archerMessageMapper
                 .updateFetchedIdleMessagesByIdList(entities.stream().map(ArcherMessageEntity::getId).collect(Collectors.toList()));
@@ -126,11 +128,16 @@ public class MainTask {
     }
 
     /**
-     * 检查所属实例已失效的消息，并置为闲置状态
+     * 每十秒由任一应用实例检查所有发送中消息的所属实例的状态，如果存在stamp则说明刚被检查过
+     *
+     * 如果消息所属实例已失效，置为闲置状态
      */
-    @Scheduled(fixedRate = 1000 * 60 * 5)
+    @Scheduled(fixedRate = 1000 * 10)
     public void checkMessagesOfInvalidInstance() {
         if (appInfo == null || !appInfo.isRunning()) {
+            return;
+        }
+        if (stringRedisTemplate.opsForValue().get(RedisKey.MESSAGE_APP_CHECKING_STAMP) != null) {
             return;
         }
 
@@ -141,6 +148,9 @@ public class MainTask {
         }
         try {
             doCheck();
+            stringRedisTemplate.opsForValue().set(RedisKey.MESSAGE_APP_CHECKING_STAMP,
+                    String.valueOf(System.currentTimeMillis()),
+                    60L, TimeUnit.SECONDS);
         } finally {
             clusterService.unlock(lockName);
         }
@@ -161,7 +171,7 @@ public class MainTask {
     }
 
     /**
-     * 定时刷新应用信息
+     * 定时刷新应用状态信息、统计计数信息等
      */
     @Scheduled(fixedRate = 1000)
     public void refreshAppStatusInfo() {
