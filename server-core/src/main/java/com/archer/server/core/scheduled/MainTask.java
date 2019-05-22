@@ -38,7 +38,7 @@ public class MainTask {
 
     private final static int HEARTBEAT_PRINT_COUNT = 5;
 
-    private static int heartbeatCount = 0;
+    private static int heartbeatCount;
 
     @Resource
     private ApplicationService applicationService;
@@ -74,8 +74,7 @@ public class MainTask {
         } catch (Exception e) {
             LOGGER.error(e.getMessage(), e);
         }
-        heartbeatCount++;
-        if (heartbeatCount == HEARTBEAT_PRINT_COUNT) {
+        if (++heartbeatCount == HEARTBEAT_PRINT_COUNT) {
             LOGGER.info("heartbeat");
             heartbeatCount = 0;
         }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * 集群相关
@@ -129,6 +130,7 @@ public class ClusterServiceImpl implements ClusterService {
             lock(lockName, seconds);
             return true;
         } catch (Exception e) {
+            LOGGER.error(e.getMessage(), e);
             return false;
         }
     }
@@ -176,11 +178,7 @@ public class ClusterServiceImpl implements ClusterService {
                 return;
             }
             count++;
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RestRuntimeException(e.getMessage(), e);
-            }
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
         }
         throw new RestRuntimeException("锁获取超时：lock = " + lockName);
     }
