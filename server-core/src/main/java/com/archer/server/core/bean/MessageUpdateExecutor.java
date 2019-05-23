@@ -49,7 +49,7 @@ public class MessageUpdateExecutor {
         }
     }
 
-    public synchronized void restart() {
+    public void restart() {
         synchronized (this) {
             if (updateExecutor.isShutdown()) {
                 updateExecutor = newExecutor();

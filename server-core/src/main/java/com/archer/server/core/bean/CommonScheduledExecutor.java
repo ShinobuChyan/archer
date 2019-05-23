@@ -40,7 +40,7 @@ public class CommonScheduledExecutor {
         }
     }
 
-    public synchronized void restart() {
+    public void restart() {
         synchronized (this) {
             if (commonScheduledExecutor.isShutdown()) {
                 commonScheduledExecutor = newExecutor();
