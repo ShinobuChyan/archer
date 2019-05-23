@@ -9,8 +9,7 @@ import org.springframework.lang.Nullable;
 
 import javax.validation.constraints.NotNull;
 import java.util.*;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.StampedLock;
 
 /**
  * @author Shinobu
@@ -18,7 +17,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class ArcherMessage {
 
-    private final transient ReadWriteLock lock = new ReentrantReadWriteLock();
+    private static final int DEFAULT_MAX_READ_SPINS = 1 << 8;
+
+    private final transient StampedLock lock = new StampedLock();
 
     private String id;
 
@@ -59,13 +60,14 @@ public class ArcherMessage {
 
     private String stoppedKeyWords;
 
-    private ArcherMessage() {}
+    private ArcherMessage() {
+    }
 
     public static ArcherMessage initMessage(@NotNull String id, @NotNull String refId, @NotNull String extraInfo, @NotNull String source,
-                         String topic, String tag, @NotNull String status, Date nextTime,
-                         @NotNull String url, @NotNull String method, @NotNull String contentType,
-                         String headers, String content,
-                         @NotNull List<Integer> intervalList, @NotNull Date firstTime, @NotNull String stoppedKeyWords) {
+                                            String topic, String tag, @NotNull String status, Date nextTime,
+                                            @NotNull String url, @NotNull String method, @NotNull String contentType,
+                                            String headers, String content,
+                                            @NotNull List<Integer> intervalList, @NotNull Date firstTime, @NotNull String stoppedKeyWords) {
         var message = new ArcherMessage();
         message.id = id;
         message.refId = refId;
@@ -100,30 +102,60 @@ public class ArcherMessage {
 
     public ArcherMessage(@NotNull ArcherMessageEntity entity) {
         CommonUtil.attrTransfer(entity, this);
-        this.headers = JSON.parseObject(entity.getHeaders(), new TypeReference<>() {});
+        this.headers = JSON.parseObject(entity.getHeaders(), new TypeReference<>() {
+        });
         this.intervalList = JSON.parseArray(entity.getIntervalList(), Integer.class);
+    }
+
+    private interface ReadFunction<R> {
+
+        /**
+         * 实现此方法以在StampedLock模式下读取数据
+         *
+         * @return result
+         */
+        R execute();
+    }
+
+    /**
+     * 使用StampedLock的先乐观后加锁的读取模板
+     *
+     * @param spins 乐观读最大自旋次数
+     * @param func  读取逻辑
+     * @param <R>   读取结果Type
+     * @return result
+     */
+    private <R> R readWithStampedLock(int spins, ReadFunction<R> func) {
+        final var lock = this.lock;
+        long stamp = lock.tryOptimisticRead();
+        for (int i = 0; i < spins; i++, stamp = lock.tryOptimisticRead()) {
+            var r = func.execute();
+            if (lock.validate(stamp)) {
+                return r;
+            }
+        }
+
+        stamp = lock.readLock();
+        try {
+            return func.execute();
+        } finally {
+            lock.unlockRead(stamp);
+        }
     }
 
     @Override
     public String toString() {
-        lock.readLock().lock();
-        try {
-            return JSON.toJSONString(this);
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> JSON.toJSONString(this));
     }
 
     /**
      * 获取全部header
      */
     public @NotNull Map<String, String> getHeaders() {
-        lock.readLock().lock();
-        try {
-            return this.headers == null ? new HashMap<>(2) : new HashMap<>(headers);
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> {
+            final var headers = this.headers;
+            return headers == null ? new HashMap<>(2) : new HashMap<>(headers);
+        });
     }
 
     /**
@@ -133,54 +165,47 @@ public class ArcherMessage {
      */
     public @Nullable
     Integer nextInterval() {
-        lock.readLock().lock();
-        try {
-            if (intervalIndex + 1 >= this.intervalList.size()) {
-                return null;
-            }
-            return this.intervalList.get(intervalIndex + 1);
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> {
+            final var intervalIndex = this.intervalIndex;
+            final var intervalList = this.intervalList;
+            return intervalIndex + 1 >= intervalList.size() ? null : intervalList.get(intervalIndex + 1);
+        });
     }
 
     /**
      * 获取距离下一次重发的毫秒数
+     *
      * @return milliseconds
      */
     public long nextMillisCountdown() {
-        lock.readLock().lock();
-        long countdown;
-        try {
-            if (lastTime == null) {
-                countdown = firstTime.getTime() + intervalList.get(intervalIndex) * 1000 - System.currentTimeMillis();
-            } else {
-                countdown = lastTime.getTime() + intervalList.get(intervalIndex) * 1000 - System.currentTimeMillis();
-            }
-            return countdown < 0 ? 0 : countdown;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> {
+            final var lastTime = this.lastTime;
+            final var intervalIndex = this.intervalIndex;
+            final var intervalList = this.intervalList;
+            return lastTime == null ?
+                    firstTime.getTime() + intervalList.get(intervalIndex) * 1000 - System.currentTimeMillis() :
+                    lastTime.getTime() + intervalList.get(intervalIndex) * 1000 - System.currentTimeMillis();
+        });
     }
 
     /**
      * 提升重发等级，如果已到达末位，则不处理
      */
     public void levelUp() {
-        lock.writeLock().lock();
+        final var lock = this.lock;
+        long stamp = lock.writeLock();
         try {
             if (intervalIndex + 1 >= intervalList.size()) {
                 return;
             }
             intervalIndex++;
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public @NotNull ArcherMessageEntity toEntity() {
-        lock.readLock().lock();
-        try {
+        return readWithStampedLock(3, () -> {
             var entity = new ArcherMessageEntity();
             CommonUtil.attrTransfer(this, entity);
             entity.setHeaders(JSON.toJSONString(this.headers));
@@ -189,17 +214,14 @@ public class ArcherMessage {
             entity.setCreatorId(ValueConstants.CREATOR_SYSTEM);
             entity.setCreatorName(ValueConstants.CREATOR_SYSTEM);
             return entity;
-        } finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     /**
      * 仅克隆部分重要属性
      */
     public ArcherMessage simplyClone() {
-        lock.readLock().lock();
-        try {
+        return readWithStampedLock(64, () -> {
             var clone = new ArcherMessage();
             clone.id = this.id;
             clone.status = this.status;
@@ -207,17 +229,14 @@ public class ArcherMessage {
             clone.lastTime = this.lastTime == null ? null : new Date(this.lastTime.getTime());
             clone.intervalIndex = this.intervalIndex;
             return clone;
-        } finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     /**
      * 克隆所有属性
      */
     public ArcherMessage deepClone() {
-        lock.readLock().lock();
-        try {
+        return readWithStampedLock(64, () -> {
             var clone = new ArcherMessage();
             clone.id = this.id;
             clone.refId = this.refId;
@@ -239,9 +258,7 @@ public class ArcherMessage {
             clone.headers = new HashMap<>(this.headers);
             clone.intervalList = new ArrayList<>(intervalList);
             return clone;
-        } finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     /**
@@ -262,182 +279,96 @@ public class ArcherMessage {
     }
 
     public String getId() {
-        lock.readLock().lock();
-        try {
-            return id;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> id);
     }
 
     public String getRefId() {
-        lock.readLock().lock();
-        try {
-            return refId;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> refId);
     }
 
     public String getExtraInfo() {
-        lock.readLock().lock();
-        try {
-            return extraInfo;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> extraInfo);
     }
 
     public String getTopic() {
-        lock.readLock().lock();
-        try {
-            return topic;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> topic);
     }
 
     public String getTag() {
-        lock.readLock().lock();
-        try {
-            return tag;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> tag);
     }
 
     public String getSource() {
-        lock.readLock().lock();
-        try {
-            return source;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> source);
     }
 
     public String getStatus() {
-        lock.readLock().lock();
-        try {
-            return status;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> status);
     }
 
     public String getUrl() {
-        lock.readLock().lock();
-        try {
-            return url;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> url);
     }
 
     public String getMethod() {
-        lock.readLock().lock();
-        try {
-            return method;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> method);
     }
 
     public String getContentType() {
-        lock.readLock().lock();
-        try {
-            return contentType;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> contentType);
     }
 
     public String getContent() {
-        lock.readLock().lock();
-        try {
-            return content;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> content);
     }
 
     public int getIntervalIndex() {
-        lock.readLock().lock();
-        try {
-            return intervalIndex;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> intervalIndex);
     }
 
     public Date getFirstTime() {
-        lock.readLock().lock();
-        try {
-            return firstTime;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> firstTime);
     }
 
     public Date getLastTime() {
-        lock.readLock().lock();
-        try {
-            return lastTime;
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> lastTime);
+    }
+
+    public String getStoppedKeyWords() {
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> stoppedKeyWords);
+    }
+
+    public Date getNextTime() {
+        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> nextTime);
     }
 
     public void setStatus(String status) {
-        lock.writeLock().lock();
+        final var lock = this.lock;
+        var stamp = lock.writeLock();
         try {
             this.status = status;
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public void setLastTime(Date lastTime) {
-        lock.writeLock().lock();
+        final var lock = this.lock;
+        var stamp = lock.writeLock();
         try {
             this.lastTime = lastTime;
         } finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    public String getStoppedKeyWords() {
-        lock.readLock().lock();
-        try {
-            return stoppedKeyWords;
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    public void setStoppedKeyWords(String stoppedKeyWords) {
-        lock.writeLock().lock();
-        try {
-            this.stoppedKeyWords = stoppedKeyWords;
-        } finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    public Date getNextTime() {
-        lock.readLock().lock();
-        try {
-            return nextTime;
-        } finally {
-            lock.readLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public void setNextTime(Date nextTime) {
-        lock.writeLock().lock();
+        final var lock = this.lock;
+        var stamp = lock.writeLock();
         try {
             this.nextTime = nextTime;
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 }
