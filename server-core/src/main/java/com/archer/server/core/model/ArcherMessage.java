@@ -279,27 +279,27 @@ public class ArcherMessage {
     }
 
     public String getId() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> id);
+        return id;
     }
 
     public String getRefId() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> refId);
+        return refId;
     }
 
     public String getExtraInfo() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> extraInfo);
+        return extraInfo;
     }
 
     public String getTopic() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> topic);
+        return topic;
     }
 
     public String getTag() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> tag);
+        return tag;
     }
 
     public String getSource() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> source);
+        return source;
     }
 
     public String getStatus() {
@@ -307,19 +307,19 @@ public class ArcherMessage {
     }
 
     public String getUrl() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> url);
+        return url;
     }
 
     public String getMethod() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> method);
+        return method;
     }
 
     public String getContentType() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> contentType);
+        return contentType;
     }
 
     public String getContent() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> content);
+        return content;
     }
 
     public int getIntervalIndex() {
@@ -327,7 +327,7 @@ public class ArcherMessage {
     }
 
     public Date getFirstTime() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> firstTime);
+        return firstTime;
     }
 
     public Date getLastTime() {
@@ -335,7 +335,7 @@ public class ArcherMessage {
     }
 
     public String getStoppedKeyWords() {
-        return readWithStampedLock(DEFAULT_MAX_READ_SPINS, () -> stoppedKeyWords);
+        return stoppedKeyWords;
     }
 
     public Date getNextTime() {
