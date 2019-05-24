@@ -221,8 +221,8 @@ public class ArcherMessage {
      * 仅克隆部分重要属性
      */
     public ArcherMessage simplyClone() {
+        var clone = new ArcherMessage();
         return readWithStampedLock(64, () -> {
-            var clone = new ArcherMessage();
             clone.id = this.id;
             clone.status = this.status;
             clone.nextTime = this.nextTime == null ? null : new Date(this.nextTime.getTime());
@@ -236,8 +236,8 @@ public class ArcherMessage {
      * 克隆所有属性
      */
     public ArcherMessage deepClone() {
+        var clone = new ArcherMessage();
         return readWithStampedLock(64, () -> {
-            var clone = new ArcherMessage();
             clone.id = this.id;
             clone.refId = this.refId;
             clone.extraInfo = this.extraInfo;
