@@ -3,9 +3,12 @@ package com.archer.server.api;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import tk.mybatis.spring.annotation.MapperScan;
 
 /**
@@ -28,4 +31,12 @@ public class ServerApiApplication {
 
 		SpringApplication.run(ServerApiApplication.class, args);
 	}
+
+	@Bean
+	public TaskScheduler taskScheduler() {
+		var taskScheduler = new ThreadPoolTaskScheduler();
+		taskScheduler.setPoolSize(2);
+		return taskScheduler;
+	}
+
 }
