@@ -259,10 +259,7 @@ public class MessageDepot {
         var time = TimeUtil.nowMillisStr();
         GrayLogUtil.messageLifecycleLog(messageId, "sending responded, index: " + snapshot.getIntervalIndex(), time, body);
         GrayLogUtil.httpPacketLog(messageId, 2, time, response.toString(), JSON.toJSONString(response.headers().map()), body);
-        if (body == null) {
-            return;
-        }
-        if (snapshot.getStoppedKeyWordsList().stream()
+        if (body != null && snapshot.getStoppedKeyWordsList().stream()
                 .anyMatch(k -> body.contains(k.toUpperCase()) || body.contains(k.toLowerCase()))) {
             IdIndex.remove(messageId);
             message.setStatus(StatusConstants.END_RESPONDED);
@@ -299,7 +296,7 @@ public class MessageDepot {
         if (ValueConstants.POST_CONTENT_TYPE_JSON.equals(snapshot.getContentType())) {
             builder.header("Content-Type", "application/json");
         }
-        if (ValueConstants.POST_CONTENT_TYPE_FORM.equals(snapshot.getContentType())) {
+        else if (ValueConstants.POST_CONTENT_TYPE_FORM.equals(snapshot.getContentType())) {
             builder.header("Content-Type", "application/x-www-form-urlencoded");
         }
         snapshot.getHeaders().forEach(builder::header);
@@ -310,10 +307,7 @@ public class MessageDepot {
      * 更新消息主要字段
      */
     private void update(ArcherMessage message) {
-        if (!appInfo.isRunning()) {
-            return;
-        }
-        if (updatingMessages.contains(message)) {
+        if (!appInfo.isRunning() || updatingMessages.contains(message)) {
             return;
         }
         updatingMessages.add(message);
