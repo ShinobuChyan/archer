@@ -60,6 +60,5 @@ public class ApplicationStartedListener implements ApplicationListener<Applicati
         LOGGER.info("MessageDepot.IdIndex初始化成功");
         appInfo.setRunning(true);
         LOGGER.info("application started.");
-
     }
 }

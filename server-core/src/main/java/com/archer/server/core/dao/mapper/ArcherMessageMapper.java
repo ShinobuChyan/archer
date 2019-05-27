@@ -80,9 +80,10 @@ public interface ArcherMessageMapper extends BaseMapper<ArcherMessageEntity> {
     /**
      * 获取处于闲置状态且已可以发送的消息
      *
+     * @param now 当前时间
      * @return messages
      */
-    List<ArcherMessageEntity> selectPreparedIdleMessages();
+    List<ArcherMessageEntity> selectPreparedIdleMessages(@NotNull @Param("now") String now);
 
     /**
      * 更新拉取到的闲置消息

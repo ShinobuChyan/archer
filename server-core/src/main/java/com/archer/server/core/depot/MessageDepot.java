@@ -183,7 +183,7 @@ public class MessageDepot {
             IdIndex.remove(message.getId());
             message.setStatus(StatusConstants.END_COMPLETED);
             update(message);
-            GrayLogUtil.messageLifecycleLog(message.getId(), "finished", TimeUtil.nowMsecStr(), null);
+            GrayLogUtil.messageLifecycleLog(message.getId(), "finished", TimeUtil.nowMillisStr(), null);
             return;
         }
         // 间隔过长，转为闲置状态
@@ -192,9 +192,10 @@ public class MessageDepot {
             IdIndex.remove(message.getId());
             message.setStatus(StatusConstants.IDLE);
             var now = new Date();
-            message.setNextTime(new Date(now.getTime() + nextMillisCountdown));
+            // 提前一分钟回到队列
+            message.setNextTime(new Date(now.getTime() + nextMillisCountdown - 60 * 1000));
             update(message);
-            GrayLogUtil.messageLifecycleLog(message.getId(), "change to IDLE", TimeUtil.nowMsecStr(), null);
+            GrayLogUtil.messageLifecycleLog(message.getId(), "change to IDLE", TimeUtil.nowMillisStr(), null);
             return;
         }
 
@@ -229,7 +230,7 @@ public class MessageDepot {
 
         var request = buildRequest(snapshot);
         message.setLastTime(new Date());
-        var time = TimeUtil.nowMsecStr();
+        var time = TimeUtil.nowMillisStr();
         GrayLogUtil.messageLifecycleLog(snapshot.getId(), "sending, index: " + snapshot.getIntervalIndex(), time, null);
         GrayLogUtil.httpPacketLog(snapshot.getId(), 1, time, request.toString(), JSON.toJSONString(request.headers().map()), snapshot.getContent());
         var completableFuture = HttpRequestUtil.CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString());
@@ -248,14 +249,14 @@ public class MessageDepot {
 
     private void handleThrows(ArcherMessage snapshot, Throwable throwable) {
         var messageId = snapshot.getId();
-        GrayLogUtil.messageLifecycleLog(messageId, "sending error, index: " + snapshot.getIntervalIndex(), TimeUtil.nowMsecStr(), null);
+        GrayLogUtil.messageLifecycleLog(messageId, "sending error, index: " + snapshot.getIntervalIndex(), TimeUtil.nowMillisStr(), null);
         LOGGER.error("send.handleThrows: 消息（" + messageId + "）发送失败", throwable);
     }
 
     private void handleResponse(@NotNull ArcherMessage snapshot, @NotNull ArcherMessage message, HttpResponse<String> response) {
         var body = response.body();
         var messageId = snapshot.getId();
-        var time = TimeUtil.nowMsecStr();
+        var time = TimeUtil.nowMillisStr();
         GrayLogUtil.messageLifecycleLog(messageId, "sending responded, index: " + snapshot.getIntervalIndex(), time, body);
         GrayLogUtil.httpPacketLog(messageId, 2, time, response.toString(), JSON.toJSONString(response.headers().map()), body);
         if (body == null) {

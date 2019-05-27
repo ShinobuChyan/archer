@@ -1,5 +1,6 @@
 package com.archer.server.core.scheduled;
 
+import com.archer.server.common.util.TimeUtil;
 import com.archer.server.core.bean.AppInfo;
 import com.archer.server.core.count.Counter;
 import com.archer.server.core.dao.mapper.ArcherMessageMapper;
@@ -24,6 +25,7 @@ import javax.annotation.Resource;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -107,9 +109,12 @@ public class MainTask {
 
     private void fetchAndProduce() {
         // fetch & update
-        var entities = archerMessageMapper.selectPreparedIdleMessages();
+        var entities = archerMessageMapper.selectPreparedIdleMessages(TimeUtil.toStandardTimeStr(new Date()));
         var updateCount = archerMessageMapper
-                .updateFetchedIdleMessagesByIdList(entities.stream().map(ArcherMessageEntity::getId).collect(Collectors.toList()));
+                .updateFetchedIdleMessagesByIdList(entities.stream()
+                        .map(ArcherMessageEntity::getId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList()));
         if (!Integer.valueOf(updateCount).equals(entities.size())) {
             LOGGER.warn("fetchIdleMessages: 拉取到的消息数目与更新数目不符, 回滚");
             throw new RuntimeException();

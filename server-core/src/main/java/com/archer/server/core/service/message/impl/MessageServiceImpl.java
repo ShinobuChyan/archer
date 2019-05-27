@@ -83,7 +83,7 @@ public class MessageServiceImpl implements MessageService {
         }
         Counter.INBOUND_COUNTER.increase();
         clusterService.increaseInboundCount();
-        GrayLogUtil.messageLifecycleLog(id, "saved.", TimeUtil.nowMsecStr(), message.toString());
+        GrayLogUtil.messageLifecycleLog(id, "saved.", TimeUtil.nowMillisStr(), message.toString());
 
         if (appInfo.isRunning()) {
             messageDepot.produce(message);
@@ -121,7 +121,7 @@ public class MessageServiceImpl implements MessageService {
 
         int i = archerMessageMapper.updateStatusByPrimaryKey(id, status);
         if (i > 0) {
-            GrayLogUtil.messageLifecycleLog(id, "status changed by outside, new status: " + status, TimeUtil.nowMsecStr(), null);
+            GrayLogUtil.messageLifecycleLog(id, "status changed by outside, new status: " + status, TimeUtil.nowMillisStr(), null);
         }
     }
 

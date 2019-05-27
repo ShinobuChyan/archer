@@ -30,7 +30,7 @@ public class TimeUtil {
 
     private static final String NUMBER_TIME_PATTERN = "yyyyMMddHHmmss";
 
-    public static @NotNull String nowMsecStr() {
+    public static @NotNull String nowMillisStr() {
         return new SimpleDateFormat(BASIC_MILLIS_PATTERN).format(new Date());
     }
 
