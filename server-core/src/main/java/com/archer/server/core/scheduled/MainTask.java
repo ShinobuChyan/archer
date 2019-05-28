@@ -142,6 +142,8 @@ public class MainTask {
         if (appInfo == null || !appInfo.isRunning()) {
             return;
         }
+        final var stringRedisTemplate = this.stringRedisTemplate;
+        final var clusterService = this.clusterService;
         if (stringRedisTemplate.opsForValue().get(RedisKey.MESSAGE_APP_CHECKING_STAMP) != null) {
             return;
         }
@@ -152,27 +154,23 @@ public class MainTask {
             return;
         }
         try {
-            doCheck();
+            var sendingMessageIdList = stringRedisTemplate.opsForHash().keys(RedisKey.MESSAGE_APP);
+            sendingMessageIdList.forEach(messageId -> {
+                if (messageId == null) {
+                    return;
+                }
+                var appId = (String) stringRedisTemplate.opsForHash().get(RedisKey.MESSAGE_APP, messageId);
+                if (clusterService.isInvalidApp(appId)) {
+                    stringRedisTemplate.opsForHash().delete(RedisKey.MESSAGE_APP, messageId);
+                    archerMessageMapper.updateFetchedIdleMessagesByIdList(Collections.singletonList((String) messageId));
+                }
+            });
             stringRedisTemplate.opsForValue().set(RedisKey.MESSAGE_APP_CHECKING_STAMP,
                     String.valueOf(System.currentTimeMillis()),
                     60L, TimeUnit.SECONDS);
         } finally {
             clusterService.unlock(lockName);
         }
-    }
-
-    private void doCheck() {
-        var sendingMessageIdList = stringRedisTemplate.opsForHash().keys(RedisKey.MESSAGE_APP);
-        sendingMessageIdList.forEach(messageId -> {
-            if (messageId == null) {
-                return;
-            }
-            var appId = (String) stringRedisTemplate.opsForHash().get(RedisKey.MESSAGE_APP, messageId);
-            if (clusterService.isInvalidApp(appId)) {
-                stringRedisTemplate.opsForHash().delete(RedisKey.MESSAGE_APP, messageId);
-                archerMessageMapper.updateFetchedIdleMessagesByIdList(Collections.singletonList((String) messageId));
-            }
-        });
     }
 
     /**
