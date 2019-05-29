@@ -19,7 +19,6 @@
         <module>server-core</module>
         <module>server-security</module>
         <module>server-common</module>
-        <module>server-dubbo</module>
     </modules>
 
     <properties>

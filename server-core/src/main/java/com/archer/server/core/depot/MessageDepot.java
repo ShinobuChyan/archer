@@ -1,6 +1,5 @@
 package com.archer.server.core.depot;
 
-import com.alibaba.dubbo.common.utils.ConcurrentHashSet;
 import com.alibaba.fastjson.JSON;
 import com.archer.server.core.bean.AppInfo;
 import com.archer.server.core.bean.CommonScheduledExecutor;
@@ -118,7 +117,7 @@ public class MessageDepot {
 
     }
 
-    private ConcurrentHashSet<ArcherMessage> updatingMessages = new ConcurrentHashSet<>(1024);
+    private ConcurrentHashMap<ArcherMessage, String> updatingMessages = new ConcurrentHashMap<>(1024);
 
     /**
      * 发送错误计数，连续十次错误将导致应用关闭
@@ -310,7 +309,7 @@ public class MessageDepot {
         if (!appInfo.isRunning() || updatingMessages.contains(message)) {
             return;
         }
-        updatingMessages.add(message);
+        updatingMessages.put(message, "");
         messageUpdateExecutor.execute(() -> {
             updatingMessages.remove(message);
             var clone = message.simplyClone();
