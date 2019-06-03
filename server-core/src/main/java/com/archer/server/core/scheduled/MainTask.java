@@ -13,6 +13,7 @@ import com.archer.server.core.service.application.ApplicationService;
 import com.archer.server.core.service.cluster.ClusterService;
 import com.archer.server.common.constant.RedisKey;
 import com.archer.server.common.exception.ApplicationInvalidException;
+import com.archer.server.core.service.cluster.MessageCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -49,6 +50,9 @@ public class MainTask {
 
     @Resource
     private ClusterService clusterService;
+
+    @Resource
+    private MessageCacheService messageCacheService;
 
     @Resource
     private AppInfo appInfo;
@@ -154,14 +158,14 @@ public class MainTask {
             return;
         }
         try {
-            var sendingMessageIdList = stringRedisTemplate.opsForHash().keys(RedisKey.MESSAGE_APP);
+            var sendingMessageIdList = messageCacheService.allMessageId();
             sendingMessageIdList.forEach(messageId -> {
                 if (messageId == null) {
                     return;
                 }
-                var appId = (String) stringRedisTemplate.opsForHash().get(RedisKey.MESSAGE_APP, messageId);
+                var appId = messageCacheService.getAppIdOfMessage((String) messageId);
                 if (clusterService.isInvalidApp(appId)) {
-                    stringRedisTemplate.opsForHash().delete(RedisKey.MESSAGE_APP, messageId);
+                    messageCacheService.delete((String) messageId);
                     archerMessageMapper.updateFetchedIdleMessagesByIdList(Collections.singletonList((String) messageId));
                 }
             });

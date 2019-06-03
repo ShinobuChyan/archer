@@ -81,7 +81,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             return;
         }
         clusterService.register();
-        MessageDepot.IdIndex.refreshAppKey(appInfo.getAppId());
+        MessageDepot.IdIndex.refreshAppId(appInfo.getAppId());
         commonScheduledExecutor.restart();
         messageUpdateExecutor.restart();
         appInfo.setRunning(true);

@@ -5,9 +5,10 @@ import com.archer.server.core.model.ArcherMessage;
 import org.springframework.lang.Nullable;
 
 import javax.validation.constraints.NotNull;
-import java.util.List;
+import java.util.Set;
 
 /**
+ * 消息缓存相关
  *
  * @author Shinobu
  * @since 2019/5/31
@@ -23,7 +24,7 @@ public interface MessageCacheService {
      * @return {@code true} messageId不存在且put成功
      *         {@code false} messageId已存在或put不成功
      */
-    boolean putIfAbsent(@NotNull String messageId, String appId);
+    boolean putIfAbsent(@NotNull String messageId, @NotNull String appId);
 
     /**
      * 获取消息所属app实例id
@@ -38,7 +39,7 @@ public interface MessageCacheService {
      *
      * @return messageIdList
      */
-    @NotNull List<String> allMessageId();
+    @NotNull Set<Object> allMessageId();
 
     /**
      * 删除消息id对应的记录
