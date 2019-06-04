@@ -76,10 +76,12 @@ public class ApplicationServiceImpl implements ApplicationService {
      */
     @Override
     public synchronized void restart() {
+        var appInfo = this.appInfo;
         if (appInfo.isRunning()) {
             LOGGER.info("restart: 应用正在运行中");
             return;
         }
+
         clusterService.register();
         MessageDepot.IdIndex.refreshAppId(appInfo.getAppId());
         commonScheduledExecutor.restart();
