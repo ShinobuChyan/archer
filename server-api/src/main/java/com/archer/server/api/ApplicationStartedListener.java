@@ -5,7 +5,6 @@ import com.archer.server.core.depot.MessageDepot;
 import com.archer.server.core.service.cluster.ClusterService;
 import com.archer.server.common.util.GrayLogUtil;
 import com.archer.server.core.properties.GrayLogProperties;
-import com.archer.server.core.service.cluster.MessageCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,7 @@ public class ApplicationStartedListener implements ApplicationListener<Applicati
     private AppInfo appInfo;
 
     @Resource
-    private MessageCacheService messageCacheService;
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * Handle an application event.
@@ -57,7 +56,7 @@ public class ApplicationStartedListener implements ApplicationListener<Applicati
         LOGGER.info("实例注册成功，appId: " + appInfo.getAppId());
         GrayLogUtil.init(grayLogProperties.getHost(), grayLogProperties.getPort(), env, grayLogExecutor);
         LOGGER.info("GrayLogUtil初始化成功");
-        MessageDepot.IdIndex.init(messageCacheService, appInfo.getAppId());
+        MessageDepot.IdIndex.init(stringRedisTemplate, appInfo.getAppId());
         LOGGER.info("MessageDepot.IdIndex初始化成功");
         appInfo.setRunning(true);
         LOGGER.info("application started.");

@@ -17,10 +17,10 @@ import com.archer.server.common.exception.RestRuntimeException;
 import com.archer.server.common.util.GrayLogUtil;
 import com.archer.server.common.util.HttpRequestUtil;
 import com.archer.server.common.util.TimeUtil;
-import com.archer.server.core.service.cluster.MessageCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.validation.constraints.NotNull;
@@ -60,15 +60,15 @@ public class MessageDepot {
          */
         private final static ConcurrentHashMap<String, ArcherMessage> ID_INDEX = new ConcurrentHashMap<>(1024);
 
-        private static volatile MessageCacheService messageCacheService = null;
+        private static volatile StringRedisTemplate stringRedisTemplate = null;
 
         private static volatile String appId = null;
 
-        public static void init(@NotNull MessageCacheService m, @NotNull String appId) {
-            if (messageCacheService == null) {
+        public static void init(@NotNull StringRedisTemplate m, @NotNull String appId) {
+            if (stringRedisTemplate == null) {
                 synchronized (IdIndex.class) {
-                    if (messageCacheService == null) {
-                        messageCacheService = m;
+                    if (stringRedisTemplate == null) {
+                        stringRedisTemplate = m;
                         IdIndex.appId = appId;
                     }
                 }
@@ -97,9 +97,9 @@ public class MessageDepot {
 
         static void putIfAbsent(@NotNull String messageId, ArcherMessage message) {
 
-            if (messageCacheService.putIfAbsent(messageId, appId)) {
+            if (stringRedisTemplate.opsForHash().putIfAbsent(RedisKey.MESSAGE_APP, messageId, appId)) {
                 throw new RestRuntimeException("MessageDepot.IdIndex.putIfAbsent: 消息（" + messageId + "）正在发送中，持有者：" +
-                        messageCacheService.getAppIdOfMessage(messageId));
+                        stringRedisTemplate.opsForHash().get(RedisKey.MESSAGE_APP, messageId));
             }
 
             var previous = ID_INDEX.putIfAbsent(messageId, message);
@@ -112,7 +112,7 @@ public class MessageDepot {
             if (ID_INDEX.remove(messageId) == null) {
                 throw new RestRuntimeException("MessageDepot.IdIndex.putIfAbsent: 消息（" + messageId + "）不存在");
             }
-            messageCacheService.delete(messageId);
+            stringRedisTemplate.opsForHash().delete(RedisKey.MESSAGE_APP, messageId);
         }
 
     }
